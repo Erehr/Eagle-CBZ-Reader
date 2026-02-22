@@ -337,6 +337,12 @@ async function createCBZ() {
             title: 'CBZ Created',
             body: archiveName + '.cbz – ' + items.length + ' images',
         });
+
+        // Reset state for next creation
+        items = [];
+        nameInput.value = '';
+        updateUI();
+
     } catch (err) {
         console.error('CBZ creation failed:', err);
         statusEl.textContent = 'Error: ' + err.message;
