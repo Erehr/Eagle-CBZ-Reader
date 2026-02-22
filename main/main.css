@@ -1,0 +1,375 @@
+/* CBZ Creator – Matching Eagle Compressor dark theme */
+
+:root {
+    /* Eagle dark theme tokens */
+    --color-theme-90: #1e1f22;
+    --color-text-primary: #f8f9fb;
+    --color-text-secondary: rgba(248, 249, 251, 0.7);
+    --color-text-tertiary: rgba(248, 249, 251, 0.5);
+    --color-primary: #3297ff;
+    --color-border-primary: rgba(255, 255, 255, 0.15);
+    --color-border-secondary: rgba(255, 255, 255, 0.1);
+    --color-bg-hover: rgba(248, 249, 251, 0.05);
+    --color-bg-active: rgba(248, 249, 251, 0.1);
+    --color-white-5: rgba(255, 255, 255, 0.05);
+    --color-white-15: rgba(255, 255, 255, 0.15);
+    --color-white-25: rgba(255, 255, 255, 0.25);
+    --color-negative: #ff3b30;
+    --font-weight-bold: 600;
+}
+
+* {
+    margin: 0;
+    box-sizing: border-box;
+    font-family: -apple-system, "SF Pro Text", Helvetica Neue, Helvetica, Roboto, Arial, PingFang SC, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    font-weight: 400;
+}
+
+img {
+    -webkit-user-drag: none;
+    user-select: none;
+    display: block;
+}
+
+html,
+body {
+    height: 100%;
+    overflow: hidden;
+    background-color: var(--color-theme-90);
+    color: var(--color-text-primary);
+    font-size: 13px;
+    user-select: none;
+}
+
+.app {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* ── Header (matches .header-vue) ───────────────────────── */
+
+.titlebar {
+    position: relative;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--color-border-secondary);
+    user-select: none;
+    -webkit-app-region: drag;
+}
+
+.titlebar-text {
+    flex: 1;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-bold);
+    font-size: 14px;
+    line-height: 22px;
+}
+
+.titlebar-close {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    color: var(--color-text-tertiary);
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 12px;
+    transition: background-color 200ms ease-in-out;
+    -webkit-app-region: no-drag;
+}
+
+.titlebar-close svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+}
+
+.titlebar-close:hover {
+    background: var(--color-bg-hover);
+}
+
+.titlebar-close:active {
+    background: var(--color-bg-active);
+}
+
+/* ── Image list (matches .body-vue / .v-table) ──────────── */
+
+.image-list {
+    position: relative;
+    flex: 1;
+    overflow-y: overlay;
+    padding: 4px;
+}
+
+.empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--color-text-tertiary);
+    font-size: 13px;
+    text-align: center;
+    padding: 20px;
+}
+
+.image-list.drag-over::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(50, 151, 255, 0.08);
+    border: 2px solid var(--color-primary);
+    border-radius: 6px;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.image-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 8px;
+    height: 40px;
+    border-radius: 6px;
+    transition: background-color 100ms;
+}
+
+.image-item:nth-child(odd) {
+    background: var(--color-white-5);
+}
+
+.image-item:hover {
+    background: var(--color-bg-hover);
+}
+
+.image-item.dragging {
+    opacity: 0.4;
+}
+
+.image-item.drag-over-row {
+    outline: 1px solid var(--color-primary);
+    outline-offset: -1px;
+    background: rgba(50, 151, 255, 0.08);
+}
+
+.image-item .drag-handle {
+    width: 18px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    cursor: grab;
+    color: var(--color-text-tertiary);
+    opacity: 0;
+    transition: opacity 100ms;
+}
+
+.image-item .drag-handle svg {
+    fill: currentColor;
+}
+
+.image-item:hover .drag-handle {
+    opacity: 0.6;
+}
+
+.image-item:hover .drag-handle:hover {
+    opacity: 1;
+}
+
+.image-item .thumb {
+    width: 30px;
+    height: 30px;
+    border-radius: 4px;
+    object-fit: cover;
+    background: var(--color-white-5);
+    flex-shrink: 0;
+    outline: rgba(0, 0, 0, 0.1) solid 1px;
+    outline-offset: -1px;
+}
+
+.image-item .info {
+    flex: 1;
+    min-width: 0;
+}
+
+.image-item .name {
+    font-size: 13px;
+    color: var(--color-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.image-item .meta {
+    font-size: 12px;
+    color: var(--color-text-tertiary);
+}
+
+.image-item .btn-remove {
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    color: var(--color-text-tertiary);
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 100ms, background-color 200ms;
+}
+
+.image-item:hover .btn-remove {
+    opacity: 0.8;
+}
+
+.image-item:hover .btn-remove:hover {
+    opacity: 1;
+    background: var(--color-bg-hover);
+}
+
+.image-item .btn-remove svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+}
+
+/* ── Footer (matches .footer-vue) ───────────────────────── */
+
+.footer {
+    position: relative;
+    border-top: 1px solid var(--color-border-secondary);
+    min-height: 60px;
+    line-height: 60px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.footer-left {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.footer-left label {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    flex-shrink: 0;
+}
+
+.footer-left input {
+    flex: 1;
+    min-width: 80px;
+    height: 36px;
+    line-height: 36px;
+    padding: 0 12px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--color-border-primary);
+    border-radius: 6px;
+    color: var(--color-text-primary);
+    font-size: 13px;
+    outline: none;
+    transition: border-color 150ms;
+}
+
+.footer-left input::placeholder {
+    color: rgba(248, 249, 251, 0.25);
+}
+
+.footer-left input:focus {
+    border-color: var(--color-primary);
+}
+
+.footer .status {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 1;
+}
+
+/* Button (matches .el-button.el-button--primary) */
+.footer button#btn-create {
+    height: 36px;
+    line-height: 36px;
+    padding: 0 16px;
+    background: var(--color-primary);
+    color: #fff;
+    border: 1px solid var(--color-white-15);
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: var(--font-weight-bold);
+    cursor: pointer;
+    transition: background-image 150ms, opacity 150ms;
+    flex-shrink: 0;
+    white-space: nowrap;
+    background-image: linear-gradient(0deg, transparent, transparent);
+}
+
+.footer button#btn-create:hover:not(:disabled) {
+    background-image: linear-gradient(0deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.05));
+}
+
+.footer button#btn-create:active:not(:disabled) {
+    background-image: linear-gradient(0deg, rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.05));
+}
+
+.footer button#btn-create:disabled {
+    opacity: 0.5;
+    cursor: default;
+    pointer-events: all;
+}
+
+.footer button#btn-create.working {
+    opacity: 0.5;
+    cursor: wait;
+}
+
+/* ── Scrollbar (matches Eagle dark theme) ───────────────── */
+
+::-webkit-scrollbar {
+    width: 6px !important;
+    height: 4px !important;
+}
+
+::-webkit-scrollbar-thumb {
+    min-height: 50px !important;
+    border-radius: 20px !important;
+    background: rgba(255, 255, 255, 0.15) !important;
+    transition: background 100ms;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3) !important;
+}
+
+::-webkit-scrollbar-button {
+    width: 0;
+    height: 0;
+}
+
+::-webkit-scrollbar-corner {
+    background: transparent !important;
+}

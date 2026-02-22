@@ -1,0 +1,39 @@
+{
+    "id": "com.eagle.cbz-cbr.reader",
+    "version": "1.0.0",
+    "platform": "all",
+    "arch": "all",
+    "name": "CBZ Reader",
+    "description": "Fast comic reader for CBZ and CBR with single/double/continuous views. Thumbnails from first page. Create CBZ from selected images.",
+    "logo": "logo.png",
+    "keywords": [
+        "cbz",
+        "cbr",
+        "comic",
+        "manga",
+        "reader",
+        "viewer"
+    ],
+    "devTools": false,
+    "main": {
+        "frame": false,
+        "vibrancy": true,
+        "url": "main/main.html",
+        "width": 480,
+        "height": 520,
+        "minWidth": 380,
+        "minHeight": 400
+    },
+    "preview": {
+        "cbz,cbr": {
+            "thumbnail": {
+                "path": "thumbnail/thumbnail.js",
+                "size": 400,
+                "allowZoom": false
+            },
+            "viewer": {
+                "path": "viewer/viewer.html"
+            }
+        }
+    }
+}

@@ -1,0 +1,510 @@
+/* CBZ/CBR Reader – Viewer Styles */
+
+/* Fallbacks when Eagle vars are not set (e.g. standalone) */
+:root {
+    --color-text-primary: #18191c;
+    --color-text-tertiary: rgba(24, 25, 28, 0.5);
+    --color-bg-hover: rgba(24, 25, 28, 0.05);
+    --color-bg-active: rgba(24, 25, 28, 0.1);
+    --color-border-secondary: rgba(0, 0, 0, 0.08);
+    --font-family-mono: "SF Mono", "Fira Mono", "Roboto Mono", "Monaco", "Consolas", monospace;
+    --color-theme-90: #f7f8f8;
+}
+
+html[theme=dark],
+html[theme=gray],
+html[theme=blue],
+html[theme=purple] {
+    --color-text-primary: #f7f8f8;
+    --color-text-tertiary: rgba(247, 248, 248, 0.5);
+    --color-bg-hover: rgba(247, 248, 248, 0.05);
+    --color-bg-active: rgba(247, 248, 248, 0.1);
+    --color-border-secondary: rgba(255, 255, 255, 0.1);
+    --color-theme-90: #18191c;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html,
+body {
+    height: 100%;
+    background: var(--color-theme-90);
+    color: var(--color-text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Prevent selection and image drag */
+.content,
+.content img {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-user-drag: none;
+}
+
+.content ::selection {
+    background: transparent;
+}
+
+.content {
+    cursor: grab;
+}
+
+.content.dragging {
+    cursor: grabbing;
+}
+
+.content.zoomed {
+    cursor: move;
+}
+
+.content.zoomed.dragging {
+    cursor: grabbing;
+}
+
+/* ── Toolbar ────────────────────────────────────────────────── */
+
+.toolbar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    height: 48px;
+    padding: 0 16px;
+    line-height: 48px;
+    font-family: var(--font-family-mono);
+    font-size: 13px;
+    color: var(--color-text-tertiary);
+    border-top: 1px solid var(--color-border-secondary);
+    user-select: none;
+}
+
+.toolbar .toolbar-left,
+.toolbar .toolbar-center,
+.toolbar .toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.toolbar .toolbar-left,
+.toolbar .toolbar-right {
+    flex-grow: 1;
+    flex-basis: 0;
+}
+
+.toolbar .toolbar-left {
+    justify-content: flex-start;
+}
+
+.toolbar .toolbar-right {
+    justify-content: flex-end;
+}
+
+.toolbar .toolbar-center {
+    gap: 8px;
+    flex: 0 0 auto;
+}
+
+.toolbar .page-info {
+    min-width: 64px;
+    text-align: center;
+}
+
+.toolbar button {
+    background: transparent;
+    border: none;
+    color: var(--color-text-primary);
+    padding: 0 10px;
+    height: 32px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.toolbar button .icon {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.toolbar button:hover:not(:disabled) {
+    background: var(--color-bg-hover);
+}
+
+.toolbar button:active:not(:disabled) {
+    background: var(--color-bg-active);
+}
+
+.toolbar button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.toolbar button.active {
+    background: var(--color-bg-active);
+}
+
+.toolbar button:not(.active) .icon {
+    opacity: 0.4;
+    color: var(--color-text-tertiary);
+}
+
+.toolbar .mode-paged-only,
+.toolbar .mode-scroll-only,
+.toolbar .mode-double-only {
+    display: none;
+}
+
+.toolbar.scroll-mode .mode-scroll-only {
+    display: flex;
+}
+
+.toolbar.single-mode .mode-paged-only,
+.toolbar.double-mode .mode-paged-only {
+    display: flex;
+}
+
+.toolbar.double-mode .mode-double-only {
+    display: flex;
+}
+
+.toolbar button .icon {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.toolbar button .icon.hide {
+    display: none;
+}
+
+.toolbar button.scroll-nav-off .icon {
+    opacity: 0.4;
+    color: var(--color-text-tertiary);
+}
+
+.toolbar .toolbar-left button:not(.active) .icon {
+    opacity: 0.4;
+    color: var(--color-text-tertiary);
+}
+
+.toolbar .width-btn {
+    gap: 4px;
+}
+
+.toolbar .width-btn #scroll-width-label,
+.toolbar #transition-speed-label {
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    min-width: 1.8em;
+}
+
+.toolbar button#transition-speed-toggle.instant #transition-speed-label {
+    opacity: 0.7;
+}
+
+.toolbar button .icon.gap-off {
+    opacity: 0.4;
+}
+
+/* ── Content area ───────────────────────────────────────────── */
+
+.content {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+}
+
+.content img {
+    pointer-events: none;
+}
+
+
+
+/* ── Single reading body (slide / scroll / compact) ── */
+
+.reading-wrapper {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: stretch;
+}
+
+.reading-container {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    overflow: auto;
+    overflow-x: hidden;
+    background: var(--color-theme-90);
+}
+
+/* Overlay auto-hide scrollbar in scroll mode so it doesn't eat layout width */
+.reading-container.scroll-mode {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+.reading-container.scroll-mode::-webkit-scrollbar {
+    width: 6px;
+    background: transparent;
+}
+
+.reading-container.scroll-mode::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+}
+
+.reading-container.scroll-mode::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.reading-body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    transition: opacity 0.1s;
+}
+
+/* In scroll mode body must grow with track so the container can scroll */
+.reading-container.scroll-mode .reading-body {
+    height: auto;
+    min-height: 100%;
+}
+
+.reading-body>#reading-track {
+    position: relative;
+    overflow: visible;
+    display: flex;
+    height: 100%;
+    background: var(--color-theme-90);
+}
+
+.reading-body>#reading-track.slide-layout {
+    will-change: transform;
+    backface-visibility: hidden;
+    transform: translate3d(0, 0, 0);
+}
+
+.reading-body>#reading-track.scroll-layout {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    backface-visibility: hidden;
+    transform: translate3d(0, 0, 0);
+}
+
+/* Gap is handled via padding on the img element itself (uniform for all modes) */
+
+.reading-body>#reading-track.slide-layout {
+    flex-direction: row;
+    flex-wrap: nowrap;
+}
+
+.reading-body>#reading-track.compact-layout {
+    display: block;
+}
+
+.reading-body .r-flex {
+    display: flex;
+    position: relative;
+    flex-shrink: 0;
+    justify-content: center;
+    align-items: center;
+    /* Force independent GPU layer chunking to bypass Chrome's 33.5M pixel limit */
+    transform: translateZ(0);
+    will-change: transform;
+    content-visibility: auto;
+}
+
+/* GPU layer only on adjacent items (prev/current/next) to avoid layer explosion */
+.reading-body .r-flex.slide-layer {
+    will-change: transform;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transform-style: preserve-3d;
+    transform: translateZ(0);
+}
+
+.reading-body .r-flex.scroll-layer {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transform-style: preserve-3d;
+    transform: translateZ(0);
+}
+
+/* 2-page: align left page right (toward spine), right page left (toward spine); cover/last full-width stay center */
+.reading-body .r-flex.double-left {
+    justify-content: flex-end;
+}
+
+.reading-body .r-flex.double-right {
+    justify-content: flex-start;
+}
+
+.reading-body .r-img {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: var(--color-theme-90);
+    /* Width from content so wrapper can't expand past .r-img */
+    width: auto;
+    flex: 0 0 auto;
+    min-width: 0;
+}
+
+.reading-body .compact-layout .r-flex {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 0;
+    background: var(--color-theme-90);
+    content-visibility: hidden;
+}
+
+.reading-body .compact-layout .r-flex.active {
+    z-index: 1;
+    content-visibility: visible;
+}
+
+.reading-body .compact-layout .r-flex .r-img img {
+    position: relative;
+    z-index: 1;
+}
+
+.reading-body .r-img>div {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    margin: 0;
+    /* Prevent flex item from growing past set size (intrinsic img size can force wrapper wide) */
+    min-width: 0;
+    min-height: 0;
+    flex-shrink: 0;
+    /* Solid placeholder before image loads */
+    /* background: #fff; */
+    /* background-clip: content-box; */
+}
+
+.reading-body .r-img img {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
+    /* Prevent pixel gaps/padding from expanding the intrinsic bounding box and corrupting responsive layouts */
+    box-sizing: border-box;
+    object-fit: contain;
+    /* Stay within wrapper; prevent intrinsic size from affecting layout */
+    min-width: 0;
+    min-height: 0;
+    -webkit-user-drag: none;
+    user-select: none;
+    border: none;
+}
+
+/* Uniform gap: padding on the img shrinks it inward without changing any layout dimensions */
+.reading-body #reading-track.track-has-gap .r-img img {
+    padding: 4px;
+}
+
+/* Hide empty img so only the white placeholder shows until loaded */
+.reading-body .r-img img:not([src]) {
+    opacity: 0;
+    position: absolute;
+}
+
+.reading-body .r-img.blank>div {
+    background: var(--color-theme-90);
+}
+
+.reading-body .r-img.blank>div>div {
+    width: 100%;
+    height: 100%;
+    background: var(--color-theme-90);
+}
+
+/* Scroll/continuous gap is via .scroll-layout.track-has-gap row-gap */
+/* Width constraint only in continuous/scroll mode (not in 1/2 page view) */
+.reading-container.scroll-mode.width-100 .r-img {
+    max-width: 100%;
+}
+
+.reading-container.scroll-mode.width-75 .r-img {
+    max-width: 75%;
+}
+
+.reading-container.scroll-mode.width-50 .r-img {
+    max-width: 50%;
+}
+
+/* ── Loader / Error ─────────────────────────────────────────── */
+
+.loader {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--color-border-secondary);
+    border-top-color: var(--color-text-primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: translate(-50%, -50%) rotate(360deg);
+    }
+}
+
+.error {
+    padding: 20px;
+    color: #e57373;
+    text-align: center;
+}
+
+.page-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(128, 128, 128, 0.08);
+    color: var(--color-text-tertiary);
+    font-size: 12px;
+    font-family: var(--font-family-mono);
+}

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Create CBZ</title>
+    <link rel="stylesheet" href="main.css">
+    <script src="main.js" defer></script>
+</head>
+
+<body>
+    <div class="app">
+        <!-- Custom titlebar (draggable) -->
+        <div class="titlebar">
+            <span class="titlebar-text">Create CBZ</span>
+            <button class="titlebar-close" id="btn-close" title="Close">
+                <svg viewBox="0 0 24 24">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+            </button>
+        </div>
+
+        <div class="image-list" id="image-list">
+            <div class="empty-state" id="empty-state">
+                <p>Select images in Eagle, then open this plugin.</p>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <div class="footer-left">
+                <label for="cbz-name">Name</label>
+                <input type="text" id="cbz-name" placeholder="archive" spellcheck="false" autocomplete="off">
+            </div>
+            <span class="status" id="status"></span>
+            <button id="btn-create" disabled>Create CBZ</button>
+        </footer>
+    </div>
+</body>
+
+</html>
