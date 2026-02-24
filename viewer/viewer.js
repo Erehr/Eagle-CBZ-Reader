@@ -839,7 +839,7 @@
 
     /** Preload */
     const MAX_PREV = 5;
-    const MAX_NEXT = 10;
+    const MAX_NEXT = 15;
 
     function applyPathMapToDom(pathMap, center, priority) {
         if (!pathMap || pathMap.size === 0) return;
@@ -986,10 +986,10 @@
         updateNav();
         savePosition();
 
-        /* Debounce preloading: only fire 300ms after the last navigation event.
+        /* Debounce preloading: only fire 200ms after the last navigation event.
            During rapid key-holds this means work is queued only once the user stops. */
         if (continuous || !anim || pageTransitionMs === 0) {
-            preloadTimer = setTimeout(preloadImagesAroundCurrent, 300);
+            preloadTimer = setTimeout(preloadImagesAroundCurrent, 200);
         }
     }
 
@@ -1145,13 +1145,6 @@
         // Fallback: compute from last DOM element (only if positions not built yet)
         const last = readingTrack.lastElementChild;
         return last ? (last.offsetTop + last.offsetHeight) : readingContainer.clientHeight;
-    }
-
-    // Observer for dynamically loaded images in continuous zoom
-    // Observer for dynamically loaded images in continuous zoom is no longer needed 
-    // because native layout scaling automatically expands the DOM naturally.
-    function getTrackObserver() {
-        return null;
     }
 
     function applyScale(scale, animation, focalX, focalY) {

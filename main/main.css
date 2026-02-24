@@ -137,7 +137,8 @@ body {
 }
 
 .image-item {
-    display: flex;
+    display: grid;
+    grid-template-columns: 20px 30px minmax(0, 1fr) 80px 60px 24px;
     align-items: center;
     gap: 10px;
     padding: 4px 8px;
@@ -165,12 +166,11 @@ body {
 }
 
 .image-item .drag-handle {
-    width: 18px;
+    width: 20px;
     height: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
     cursor: grab;
     color: var(--color-text-tertiary);
     opacity: 0;
@@ -195,14 +195,8 @@ body {
     border-radius: 4px;
     object-fit: cover;
     background: var(--color-white-5);
-    flex-shrink: 0;
     outline: rgba(0, 0, 0, 0.1) solid 1px;
     outline-offset: -1px;
-}
-
-.image-item .info {
-    flex: 1;
-    min-width: 0;
 }
 
 .image-item .name {
@@ -213,9 +207,12 @@ body {
     text-overflow: ellipsis;
 }
 
-.image-item .meta {
+.image-item .resolution,
+.image-item .size {
     font-size: 12px;
     color: var(--color-text-tertiary);
+    white-space: nowrap;
+    text-align: right;
 }
 
 .image-item .btn-remove {
@@ -229,7 +226,6 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
     opacity: 0;
     transition: opacity 100ms, background-color 200ms;
 }
@@ -249,6 +245,56 @@ body {
     stroke: currentColor;
     fill: none;
     stroke-width: 2;
+}
+
+/* ── Toggle (Checkbox) ──────────────────────────────────── */
+
+.toggle-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    margin-left: 8px;
+}
+
+.toggle-group input[type="checkbox"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px !important;
+    height: 14px !important;
+    min-width: 0 !important;
+    flex: 0 0 auto !important;
+    padding: 0 !important;
+    border: 1px solid var(--color-border-primary);
+    border-radius: 3px;
+    background: rgba(0,0,0,0.2);
+    cursor: pointer;
+    position: relative;
+    outline: none;
+    margin: 0;
+}
+
+.toggle-group input[type="checkbox"]:checked {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.toggle-group input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 3px;
+    height: 7px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+.toggle-group label {
+    cursor: pointer;
+    user-select: none;
 }
 
 /* ── Footer (matches .footer-vue) ───────────────────────── */

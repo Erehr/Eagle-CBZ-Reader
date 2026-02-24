@@ -10,7 +10,7 @@ const yazl = require(path.join(pluginRoot, 'node_modules', 'yazl'));
 const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.avif']);
 
 let items = []; // Eagle Item objects
-let listEl, emptyEl, nameInput, btnCreate, statusEl;
+let listEl, emptyEl, nameInput, btnCreate, statusEl, titlebarText, chkRemoveOrigin;
 let dragReorder = { fromIndex: -1 }; // drag-to-reorder state
 
 // ── Eagle lifecycle ─────────────────────────────────────────
@@ -23,6 +23,19 @@ eagle.onPluginCreate((plugin) => {
     nameInput = document.getElementById('cbz-name');
     btnCreate = document.getElementById('btn-create');
     statusEl = document.getElementById('status');
+    titlebarText = document.getElementById('titlebar-text');
+    chkRemoveOrigin = document.getElementById('chk-remove-origin');
+
+    // Restore persistent toggle state (unchecked by default)
+    const storedToggle = localStorage.getItem('eagle-cbz-remove-origin');
+    if (storedToggle === 'true') {
+        chkRemoveOrigin.checked = true;
+    } else {
+        chkRemoveOrigin.checked = false;
+    }
+    chkRemoveOrigin.addEventListener('change', () => {
+        localStorage.setItem('eagle-cbz-remove-origin', chkRemoveOrigin.checked);
+    });
 
     btnCreate.addEventListener('click', createCBZ);
     nameInput.addEventListener('keydown', e => {
@@ -33,7 +46,10 @@ eagle.onPluginCreate((plugin) => {
     // Close button (frameless window)
     const btnClose = document.getElementById('btn-close');
     if (btnClose) {
-        btnClose.addEventListener('click', () => eagle.window.hide());
+        btnClose.addEventListener('click', () => {
+            resetWindow();
+            eagle.window.hide();
+        });
     }
 
     // Drag and drop support
@@ -42,6 +58,7 @@ eagle.onPluginCreate((plugin) => {
 
 eagle.onPluginRun(() => {
     console.log('CBZ Creator: onPluginRun');
+    resetWindow();
     loadSelected();
 });
 
@@ -50,6 +67,12 @@ eagle.onPluginShow(() => {
     // Refresh selection each time the window is shown
     loadSelected();
 });
+
+function resetWindow() {
+    items = [];
+    nameInput.value = '';
+    updateUI();
+}
 
 // ── Load selected images ────────────────────────────────────
 
@@ -147,10 +170,12 @@ function setupDragDrop() {
 function updateUI() {
     if (items.length === 0) {
         emptyEl.style.display = '';
+        titlebarText.textContent = 'Create CBZ';
         statusEl.textContent = 'No images selected';
     } else {
         emptyEl.style.display = 'none';
-        statusEl.textContent = items.length + ' image' + (items.length > 1 ? 's' : '');
+        titlebarText.textContent = `Create CBZ (${items.length} images)`;
+        statusEl.textContent = ''; // Clear status to favor space for packing feedback
     }
 
     updateButtonState();
@@ -228,15 +253,15 @@ function renderList() {
         const name = document.createElement('div');
         name.className = 'name';
         name.textContent = item.name + '.' + item.ext;
-
-        const meta = document.createElement('div');
-        meta.className = 'meta';
-        const size = item.size ? formatSize(item.size) : '';
-        const dims = (item.width && item.height) ? item.width + '×' + item.height : '';
-        meta.textContent = [dims, size].filter(Boolean).join(' · ');
-
         info.appendChild(name);
-        info.appendChild(meta);
+
+        const resDOM = document.createElement('div');
+        resDOM.className = 'resolution';
+        resDOM.textContent = (item.width && item.height) ? item.width + '×' + item.height : '';
+
+        const sizeDOM = document.createElement('div');
+        sizeDOM.className = 'size';
+        sizeDOM.textContent = item.size ? formatSize(item.size) : '';
 
         const removeBtn = document.createElement('button');
         removeBtn.className = 'btn-remove';
@@ -247,9 +272,12 @@ function renderList() {
             updateUI();
         });
 
+        // Pack grid struct columns sequentially: handle -> thumb -> info -> resolution -> size -> btn
         row.appendChild(handle);
         row.appendChild(thumb);
         row.appendChild(info);
+        row.appendChild(resDOM);
+        row.appendChild(sizeDOM);
         row.appendChild(removeBtn);
         listEl.appendChild(row);
     });
@@ -314,9 +342,35 @@ async function createCBZ() {
 
             zip.end();
 
-            ws.on('finish', resolve);
+            ws.on('finish', () => {
+                try {
+                    const stats = fs.statSync(tmpFile);
+                    if (stats.size > 22) {
+                        resolve();
+                    } else {
+                        reject(new Error('Created archive is empty or corrupted'));
+                    }
+                } catch (e) {
+                    reject(e);
+                }
+            });
             ws.on('error', reject);
         });
+
+        // Check if user requested deletions of the original files that were correctly sourced from Eagle
+        if (chkRemoveOrigin.checked) {
+            const itemsToDelete = items.filter(x => !x.id.startsWith('drop_'));
+            if (itemsToDelete.length > 0) {
+                statusEl.textContent = 'Trashing originals…';
+                for (const item of itemsToDelete) {
+                    try {
+                        await item.moveToTrash();
+                    } catch (e) {
+                        console.error('Failed to trash item:', item.id, e);
+                    }
+                }
+            }
+        }
 
         statusEl.textContent = 'Adding to Eagle…';
 
@@ -338,10 +392,9 @@ async function createCBZ() {
             body: archiveName + '.cbz – ' + items.length + ' images',
         });
 
-        // Reset state for next creation
-        items = [];
-        nameInput.value = '';
-        updateUI();
+        // Close window immediately upon absolute completion
+        resetWindow();
+        eagle.window.hide();
 
     } catch (err) {
         console.error('CBZ creation failed:', err);
