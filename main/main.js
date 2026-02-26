@@ -357,27 +357,30 @@ async function createCBZ() {
             ws.on('error', reject);
         });
 
-        // Check if user requested deletions of the original files that were correctly sourced from Eagle
-        if (chkRemoveOrigin.checked) {
-            const itemsToDelete = items.filter(x => !x.id.startsWith('drop_'));
-            if (itemsToDelete.length > 0) {
-                statusEl.textContent = 'Trashing originals…';
-                for (const item of itemsToDelete) {
-                    try {
-                        await item.moveToTrash();
-                    } catch (e) {
-                        console.error('Failed to trash item:', item.id, e);
-                    }
-                }
-            }
-        }
-
         statusEl.textContent = 'Adding to Eagle…';
 
         // Add CBZ to Eagle
         const opts = { name: archiveName };
         if (targetFolders.length > 0) opts.folders = targetFolders;
         await eagle.item.addFromPath(tmpFile, opts);
+
+        // Check if user requested deletions of the original files that were correctly sourced from Eagle
+        if (chkRemoveOrigin.checked) {
+            const idsToDelete = items.filter(x => !x.id.startsWith('drop_')).map(x => x.id);
+            if (idsToDelete.length > 0) {
+                statusEl.textContent = 'Trashing originals…';
+                try {
+                    // Use web api instead of plugin API because it allows bulk operation by providing item ID array
+                    await fetch('http://127.0.0.1:41595/api/item/moveToTrash', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ itemIds: idsToDelete })
+                    });
+                } catch (e) {
+                    console.error('Failed to bulk trash items via generic API:', e);
+                }
+            }
+        }
 
         // Cleanup temp
         try {

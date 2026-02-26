@@ -1573,8 +1573,15 @@
                 contentEl.classList.remove('dragging');
 
                 if (!wasDrag) {
-                    // Click (no drag): navigate
-                    if (e.button === 0) go(-1);
+                    // Click (no drag): navigate based on screen zone (25% left, 50% deadzone, 25% right)
+                    if (e.button === 0) {
+                        const width = window.innerWidth;
+                        if (e.clientX < width * 0.25) {
+                            go(mangaRtl ? 1 : -1);
+                        } else if (e.clientX > width * 0.75) {
+                            go(mangaRtl ? -1 : 1);
+                        }
+                    }
                 } else if (!continuous) {
                     // Paged: snap to nearest page (with boundary awareness)
                     const dx = e.clientX - dragNav.startX;
