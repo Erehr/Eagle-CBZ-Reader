@@ -115,11 +115,49 @@ body {
 .toolbar .toolbar-center {
     gap: 8px;
     flex: 0 0 auto;
+    width: 350px;
+    justify-content: center;
 }
 
-.toolbar .page-info {
-    min-width: 64px;
+.toolbar .page-seeker {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+}
+
+.toolbar .page-count {
+    min-width: 38px;
     text-align: center;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+}
+
+.toolbar .page-slider {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    background: var(--color-border-secondary);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+}
+
+.toolbar .page-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--color-text-primary);
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.toolbar .page-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
 }
 
 .toolbar button {

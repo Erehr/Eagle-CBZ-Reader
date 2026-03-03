@@ -67,7 +67,11 @@
                         stroke-linejoin="round" />
                 </svg>
             </button>
-            <span id="page-info">— / —</span>
+            <div class="page-seeker">
+                <span id="page-current" class="page-count">—</span>
+                <input type="range" id="page-slider" class="page-slider" min="1" max="1" value="1" title="Drag to seek page">
+                <span id="page-total" class="page-count">—</span>
+            </div>
             <button id="btn-next" title="Next (→)">
                 <svg class="icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path d="m9 18 6-6-6-6" stroke-width="2" fill="none" stroke="currentColor" stroke-linecap="round"

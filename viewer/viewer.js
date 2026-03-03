@@ -25,7 +25,9 @@
     const readingContainer = document.getElementById('reading-container');
     const readingBody = readingContainer.querySelector('.reading-body');
     const readingTrack = document.getElementById('reading-track');
-    const pageInfo = document.getElementById('page-info');
+    const pageCurrentLabel = document.getElementById('page-current');
+    const pageTotalLabel = document.getElementById('page-total');
+    const pageSlider = document.getElementById('page-slider');
     const btnPrev = document.getElementById('btn-prev');
     const btnNext = document.getElementById('btn-next');
     const modeSingle = document.getElementById('mode-single');
@@ -137,7 +139,9 @@
     function getSpreadPages(n, spreadIndex0) {
         if (n <= 0) return { idx1: 0, idx2: null, single: true };
         if (spreadIndex0 <= 0) return { idx1: 0, idx2: null, single: true };
-        const idx1 = 2 * spreadIndex0 - 1;
+
+        // Spread 1 is indices [1, 2]. Spread 2 is indices [3, 4], etc.
+        const idx1 = (spreadIndex0 * 2) - 1;
         const idx2 = idx1 + 1 < n ? idx1 + 1 : null;
         return { idx1, idx2, single: idx2 === null };
     }
@@ -242,13 +246,52 @@
         }, continuous ? 150 : 16);
     }
 
+    function getExpectedTargetWidth(idx) {
+        const content = readingContainer;
+        let contentHeight = rightSize.height > 0 ? rightSize.height : (content.clientHeight || 1);
+        let contentWidth = rightSize.width > 0 ? rightSize.width : (content.clientWidth || 1);
+        if (continuous) {
+            const bodyDiv = content.querySelector('.reading-body') || content;
+            contentWidth = bodyDiv.offsetWidth || contentWidth;
+        }
+
+        const n = imageNames.length;
+        const isDouble = pagesPerView === 2;
+        const isCover = idx === 0;
+        const isLastSingle = (idx === n - 1) && (n % 2 === 0);
+
+        const cellW = isDouble
+            ? (isCover || isLastSingle ? contentWidth : (continuous ? Math.floor(contentWidth / 2) - 1 : contentWidth / 2))
+            : contentWidth;
+
+        const ar = getAspectRatio(idx);
+
+        let imageWidth;
+        if (!continuous) {
+            imageWidth = contentHeight * ar;
+            if (imageWidth > cellW) {
+                imageWidth = cellW;
+            }
+        } else {
+            imageWidth = cellW * (scrollWidth / 100);
+        }
+
+        return imageWidth;
+    }
+
     /** Set the source of an image natively, followed by a sharp downsample if applicable */
     async function smartLoadImage(img, absolutePath, taskEpoch) {
         const oldBlob = img.dataset.blobUrl;
         let newBlobUrl = '';
 
-        const wrap = img.closest('.r-img > div');
-        const targetWidth = wrap ? (parseInt(wrap.style.width, 10) || wrap.offsetWidth) : 0;
+        let targetWidth = 0;
+        const idxStr = img.dataset.index;
+        if (idxStr !== undefined && !isNaN(parseInt(idxStr, 10))) {
+            targetWidth = getExpectedTargetWidth(parseInt(idxStr, 10));
+        } else {
+            const wrap = img.closest('.r-img > div');
+            targetWidth = wrap ? (parseInt(wrap.style.width, 10) || wrap.offsetWidth) : 0;
+        }
 
         let url = 'file:///' + absolutePath.replace(/\\/g, '/');
 
@@ -394,10 +437,10 @@
             if (!rFlex) continue;
 
             const isCover = i === 0;
-            const isLastSingle = (i === n - 1) && (n % 2 === 1);
+            const isLastSingle = (i === n - 1) && (n % 2 === 0);
 
             const cellW = isDouble
-                ? (isCover || isLastSingle ? contentWidth : (continuous ? Math.floor(contentWidth / 2) : contentWidth / 2))
+                ? (isCover || isLastSingle ? contentWidth : (continuous ? Math.floor(contentWidth / 2) - 1 : contentWidth / 2))
                 : contentWidth;
 
             const ar = getAspectRatio(i);
@@ -430,7 +473,7 @@
 
             if (isDouble) {
                 const isCover = i === 0;
-                const isLastSingle = i === n - 1 && n % 2 === 1;
+                const isLastSingle = (i === n - 1) && (n % 2 === 0);
                 rFlex.classList.remove('double-left', 'double-right');
                 if (!isCover && !isLastSingle) {
                     rFlex.classList.add(i % 2 === 1 ? 'double-left' : 'double-right');
@@ -497,7 +540,7 @@
                     imagesFullPosition[i] = { top: runY, center: runY + rowHeight / 2, bottom: runY + rowHeight, height: rowHeight };
                 } else {
                     const isCover = i === 0;
-                    const isLastSole = (i === n - 1) && (n % 2 === 1);
+                    const isLastSole = (i === n - 1) && (n % 2 === 0);
                     if (isCover || isLastSole) {
                         const effW = cW * (scrollWidth / 100);
                         rowHeight = effW / ar;
@@ -507,7 +550,7 @@
                         const nextI = i + 1;
                         const ar1 = ar;
                         const ar2 = nextI < n ? getAspectRatio(nextI) : ar1;
-                        const effW = Math.floor((cW / 2) * (scrollWidth / 100));
+                        const effW = Math.floor((cW / 2) - 1) * (scrollWidth / 100);
                         const h1 = effW / ar1;
                         const h2 = effW / ar2;
                         rowHeight = Math.max(h1, h2);
@@ -804,18 +847,26 @@
     // Page info & nav
     function updatePageInfo() {
         const total = imageNames.length;
+        let currentString = '';
         if (pagesPerView === 2) {
             const spread = getSpreadAt(currentIndex - 1);
             if (spread && spread.length === 2)
-                pageInfo.textContent = (spread[0].index + 1) + '-' + (spread[1].index + 1) + ' / ' + total;
+                currentString = (spread[0].index + 1) + '-' + (spread[1].index + 1);
             else if (spread && spread[0])
-                pageInfo.textContent = (spread[0].index + 1) + ' / ' + total;
+                currentString = (spread[0].index + 1);
             else
-                pageInfo.textContent = '1 / ' + total;
+                currentString = '1';
         } else {
             const spread = getSpreadAt(currentIndex - 1);
             const first = spread && spread[0];
-            pageInfo.textContent = (first ? first.index + 1 : 1) + ' / ' + total;
+            currentString = first ? first.index + 1 : 1;
+        }
+
+        if (pageCurrentLabel) pageCurrentLabel.textContent = currentString;
+        if (pageTotalLabel) pageTotalLabel.textContent = total;
+        if (pageSlider) {
+            pageSlider.max = indexNum || 1;
+            pageSlider.value = currentIndex || 1;
         }
     }
 
@@ -1416,6 +1467,27 @@
     }
 
     // Events
+    if (pageSlider) {
+        pageSlider.addEventListener('input', e => {
+            const val = parseInt(e.target.value, 10);
+            if (pageCurrentLabel) {
+                if (pagesPerView === 2) {
+                    const n = imageNames.length;
+                    const sp = getSpreadPages(n, val - 1);
+                    if (sp.idx2 != null) pageCurrentLabel.textContent = (sp.idx1 + 1) + '-' + (sp.idx2 + 1);
+                    else pageCurrentLabel.textContent = (sp.idx1 + 1);
+                } else {
+                    pageCurrentLabel.textContent = val;
+                }
+            }
+        });
+        pageSlider.addEventListener('change', e => {
+            const targetIndex = parseInt(e.target.value, 10);
+            const offset = targetIndex - currentIndex;
+            if (offset !== 0) go(offset);
+        });
+    }
+
     btnPrev.addEventListener('click', () => go(-1));
     btnNext.addEventListener('click', () => go(1));
     modeSingle.addEventListener('click', () => setPagesPerView(1));
