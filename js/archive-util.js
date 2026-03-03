@@ -570,15 +570,16 @@ function removeEntryCBZ(archivePath, entryName) {
                     });
                     zipfile.readEntry();
                 } else {
-                    // File entry: pipe raw compressed data (no re-compression)
-                    zipfile.openReadStream(entry, { decompress: false }, (errS, rawStream) => {
+                    // File entry: read uncompressed data and let yazl re-compress if originally compressed
+                    // Piping raw deflated bytes into yazl(compress: false) corrupts the archive's CRC32 signature.
+                    zipfile.openReadStream(entry, (errS, stream) => {
                         if (errS) return reject(errS);
-                        outZip.addReadStream(rawStream, entry.fileName, {
+                        outZip.addReadStream(stream, entry.fileName, {
                             mtime: entry.getLastModDate(),
-                            compress: false, // already compressed
+                            compress: entry.compressionMethod !== 0, // match original
                             size: entry.uncompressedSize,
                         });
-                        rawStream.on('end', () => zipfile.readEntry());
+                        stream.on('end', () => zipfile.readEntry());
                     });
                 }
             });
