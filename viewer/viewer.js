@@ -76,8 +76,8 @@
     let rightSize = { width: 0, height: 0, scrollHeight: 0 };
     let slideTrackTotalW = 0;
 
-    /** 1 or 2 pages per view */
-    let pagesPerView = getSetting('pagesPerView', '1') === '2' ? 2 : 1;
+    /** 1 or 2 pages per view. Defaults to 1 for brand new files. */
+    let pagesPerView = 1;
     /** Continuous scroll (vertical); when false = paged slide/compact */
     let continuous = getSetting('continuous', 'false') === 'true';
     /** Derived: 'single' | 'double' | 'scroll' for layout/nav (scroll when continuous) */
@@ -1026,9 +1026,15 @@
         const newIndex = Math.max(1, Math.min(currentIndex + delta, indexNum));
         if (newIndex === currentIndex) return;
 
-        /* Flush all pending render work so the new page isn't stuck behind old tasks */
-        renderQueue.clear();
-        renderEpoch++;
+        /* Only flush pending render work if we are taking a massive scrubber jump.
+           For rapid sequential clicks, we PRESERVE the queue so the background preloader
+           isn't brutally aborted right before we land on the image it's preparing! */
+        const actualDelta = newIndex - currentIndex;
+        if (Math.abs(actualDelta) > 5) {
+            renderQueue.clear();
+            renderEpoch++;
+        }
+
         clearTimeout(preloadTimer);
 
         const anim = !continuous;
