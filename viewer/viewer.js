@@ -305,16 +305,36 @@
                 // Abort if user scrolled away before sharp starts
                 if (taskEpoch !== undefined && taskEpoch !== renderEpoch) return;
 
-                const buffer = await sharp(absolutePath)
-                    .resize({ width: pxWidth, withoutEnlargement: true })
-                    .jpeg({ quality: 90 }) // Instant encode
-                    .toBuffer();
+                const ext = absolutePath.substring(absolutePath.lastIndexOf('.')).toLowerCase();
+                let sh = sharp(absolutePath);
+
+                // For webp, gif, and avif, actively check if the file contains animated frames
+                if (ext === '.webp' || ext === '.gif' || ext === '.avif') {
+                    const meta = await sh.metadata();
+                    if (meta && meta.pages > 1) {
+                        throw new Error("bypass animated");
+                    }
+                }
+
+                sh = sh.resize({ width: pxWidth, withoutEnlargement: true });
+
+                // Preserve transparency formats where applicable
+                if (ext === '.png') {
+                    sh = sh.png({ compressionLevel: 1 });
+                } else if (ext === '.webp') {
+                    sh = sh.webp({ quality: 90, effort: 1 });
+                } else {
+                    sh = sh.jpeg({ quality: 90 }); // Instant encode for static heavy lifts
+                }
+
+                const buffer = await sh.toBuffer();
 
                 // Abort if user scrolled away while sharp was crunching in C++
                 // This instantly unlocks the renderQueue for the new page!
                 if (taskEpoch !== undefined && taskEpoch !== renderEpoch) return;
 
-                const blob = new Blob([buffer], { type: 'image/jpeg' });
+                const mime = ext === '.png' ? 'image/png' : (ext === '.webp' ? 'image/webp' : 'image/jpeg');
+                const blob = new Blob([buffer], { type: mime });
                 url = URL.createObjectURL(blob);
                 newBlobUrl = url;
             } catch (err) {

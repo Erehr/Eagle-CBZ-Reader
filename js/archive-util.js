@@ -473,6 +473,11 @@ async function renderAtScale(filePath, index, targetScale) {
         const meta = await sharp(originalPath).metadata();
         if (!meta.width || !meta.height) return null;
 
+        // If the image is animated, completely bypass Sharp to preserve the animation loop
+        if (meta.pages && meta.pages > 1) {
+            return originalPath;
+        }
+
         // Get current display width from dimensions cache
         const dims = session.dimensions.get(index);
         const origW = dims ? dims.width : meta.width;
@@ -501,7 +506,7 @@ async function renderAtScale(filePath, index, targetScale) {
         } else if (ext === '.png') {
             sh = sh.png({ compressionLevel: 1 });
         } else if (ext === '.webp') {
-            sh = sh.webp({ quality: 80, effort: 1 });
+            sh = sh.webp({ quality: 90, effort: 1 });
         }
 
         await sh.toFile(outPath);
