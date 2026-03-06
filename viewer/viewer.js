@@ -833,7 +833,8 @@
                 pagesPerView,
                 continuous,
                 index: currentIndex,
-                spreadIndex: pagesPerView === 2 ? currentSpreadIndex() : undefined
+                spreadIndex: pagesPerView === 2 ? currentSpreadIndex() : undefined,
+                savedAt: Date.now()
             };
             localStorage.setItem(getPosKey(), JSON.stringify(data));
         } catch (_) { }
@@ -853,6 +854,13 @@
             const raw = localStorage.getItem(getPosKey());
             if (!raw) return;
             const data = JSON.parse(raw);
+
+            // Automatically expire reading progress after 24 hours
+            if (data.savedAt && (Date.now() - data.savedAt > 24 * 60 * 60 * 1000)) {
+                localStorage.removeItem(getPosKey());
+                return;
+            }
+
             if (typeof data.pagesPerView === 'number') pagesPerView = data.pagesPerView === 2 ? 2 : 1;
             if (typeof data.continuous === 'boolean') continuous = data.continuous;
             else if (data.mode === 'scroll') continuous = true;
