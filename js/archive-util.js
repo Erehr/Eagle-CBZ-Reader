@@ -437,20 +437,19 @@ async function getAllDimensions(filePath) {
     const total = session.pageCount;
     const indices = [];
     for (let i = 0; i < total; i++) indices.push(i);
+
     return getImageDimensions(filePath, indices);
 }
 
 /**
- * Render an image at a higher scale using Sharp (for zoom).
- * Capped at original image dimensions (no upscaling beyond native).
- * Cached in temp dir as `page_NNN_sX.X.webp`.
- * @param {string} filePath - archive path
- * @param {number} index - 0-based page index
- * @param {number} targetScale - desired render scale (e.g. 2.0 for 2× DPR)
+ * Render a single page at a specific pixel width via Sharp (if available).
+ * @param {string} filePath - Absolute path to the CBZ/CBR archive
+ * @param {number} index - 0-based image index
+ * @param {number} targetPixelWidth - Absolute pixel width requested (e.g. 1450)
  * @returns {Promise<string|null>} path to scaled image, or null if not applicable
  */
-async function renderAtScale(filePath, index, targetScale) {
-    if (targetScale <= 1) return null;
+async function renderAtScale(filePath, index, targetPixelWidth) {
+    if (!targetPixelWidth || targetPixelWidth <= 0) return null;
     const normPath = path.normalize(filePath);
     const session = sessions.get(normPath);
     if (!session) return null;
@@ -458,9 +457,9 @@ async function renderAtScale(filePath, index, targetScale) {
     const originalPath = session.pathForIndex(index);
     if (!originalPath) return null;
 
-    // Round scale to 1 decimal for cache key
-    const scaleKey = Math.round(targetScale * 10) / 10;
-    const cacheKey = `page_${String(index).padStart(4, '0')}_s${scaleKey}`;
+    // Round target to nearest 100px for caching bucket reuse
+    const scaleKey = Math.round(targetPixelWidth / 100) * 100;
+    const cacheKey = `page_${String(index).padStart(4, '0')}_w${scaleKey}`;
 
     // Check if already rendered at this scale
     if (session._scaledCache && session._scaledCache.has(cacheKey)) {
@@ -478,21 +477,13 @@ async function renderAtScale(filePath, index, targetScale) {
             return originalPath;
         }
 
-        // Get current display width from dimensions cache
-        const dims = session.dimensions.get(index);
-        const origW = dims ? dims.width : meta.width;
-
         // Target width capped at original (no upscale)
-        const targetW = Math.min(Math.round(origW * targetScale / (origW / meta.width)), meta.width);
+        const targetW = Math.min(targetPixelWidth, meta.width);
 
         // If the user zooms in to 95%+ of the original image size, completely bypass Sharp.
-        // This renders instantly directly from the OS file, and prevents any double-compression artifacts on custom jpegli files!
+        // This renders instantly directly from the OS file, and prevents any double-compression artifacts!
         if (targetW >= meta.width * 0.95 && meta.width <= 10000 && meta.height <= 10000) {
             return originalPath;
-        }
-
-        if (targetW <= meta.width * 0.9 && targetScale > 1.1) {
-            // Only render if meaningfully larger than what we already have or close to original
         }
 
         const ext = path.extname(originalPath).toLowerCase() || '.jpg';

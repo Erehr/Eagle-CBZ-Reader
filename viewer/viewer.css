@@ -400,6 +400,19 @@ body {
     transform: translateZ(0);
 }
 
+/* Disable aggressive compositor layer chunking for animated elements to prevent blurry/choppy texture artifacts */
+.reading-body .r-flex:has(img[data-animated="1"]) {
+    will-change: auto !important;
+    transform: none !important;
+}
+
+/* High-quality scaling filter for animated images — reduces blur while the re-raster kick fires */
+.reading-body .r-img img[data-animated="1"] {
+    image-rendering: high-quality;
+    image-rendering: -webkit-optimize-contrast;
+    /* Eagle's Chromium engine alias */
+}
+
 /* 2-page: align left page right (toward spine), right page left (toward spine); cover/last full-width stay center */
 .reading-body .r-flex.double-left {
     justify-content: flex-end;

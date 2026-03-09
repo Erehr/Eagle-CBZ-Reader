@@ -294,6 +294,7 @@
         }
 
         let url = 'file:///' + absolutePath.replace(/\\/g, '/');
+        let isAnimated = false;
 
         // If sharp is available and we have a valid container width, scale it down
         // We use JPEG for maximum encoding speed (vastly faster than PNG)
@@ -312,31 +313,33 @@
                 if (ext === '.webp' || ext === '.gif' || ext === '.avif') {
                     const meta = await sh.metadata();
                     if (meta && meta.pages > 1) {
-                        throw new Error("bypass animated");
+                        isAnimated = true;
                     }
                 }
 
-                sh = sh.resize({ width: pxWidth, withoutEnlargement: true });
+                if (!isAnimated) {
+                    sh = sh.resize({ width: pxWidth, withoutEnlargement: true });
 
-                // Preserve transparency formats where applicable
-                if (ext === '.png') {
-                    sh = sh.png({ compressionLevel: 1 });
-                } else if (ext === '.webp') {
-                    sh = sh.webp({ quality: 90, effort: 1 });
-                } else {
-                    sh = sh.jpeg({ quality: 90 }); // Instant encode for static heavy lifts
+                    // Preserve transparency formats where applicable
+                    if (ext === '.png') {
+                        sh = sh.png({ compressionLevel: 1 });
+                    } else if (ext === '.webp') {
+                        sh = sh.webp({ quality: 90, effort: 1 });
+                    } else {
+                        sh = sh.jpeg({ quality: 90 }); // Instant encode for static heavy lifts
+                    }
+
+                    const buffer = await sh.toBuffer();
+
+                    // Abort if user scrolled away while sharp was crunching in C++
+                    // This instantly unlocks the renderQueue for the new page!
+                    if (taskEpoch !== undefined && taskEpoch !== renderEpoch) return;
+
+                    const mime = ext === '.png' ? 'image/png' : (ext === '.webp' ? 'image/webp' : 'image/jpeg');
+                    const blob = new Blob([buffer], { type: mime });
+                    url = URL.createObjectURL(blob);
+                    newBlobUrl = url;
                 }
-
-                const buffer = await sh.toBuffer();
-
-                // Abort if user scrolled away while sharp was crunching in C++
-                // This instantly unlocks the renderQueue for the new page!
-                if (taskEpoch !== undefined && taskEpoch !== renderEpoch) return;
-
-                const mime = ext === '.png' ? 'image/png' : (ext === '.webp' ? 'image/webp' : 'image/jpeg');
-                const blob = new Blob([buffer], { type: mime });
-                url = URL.createObjectURL(blob);
-                newBlobUrl = url;
             } catch (err) {
                 // Self-Heal: if sharp failed because archive-util purged the file just before we read it
                 if (err && err.message && err.message.includes("missing")) {
@@ -360,18 +363,27 @@
         try {
             const preloader = new Image();
             preloader.src = url;
-            await preloader.decode(); // Wait until decoded in memory (0-frame flicker swap)
+            // Native decode() on animated WebP buffers massive frames into the compositor,
+            // completely destroying frame rate. Only decode() static bounds natively.
+            if (!isAnimated) {
+                await preloader.decode(); // Wait until decoded in memory (0-frame flicker swap)
+            }
 
             // Final safety abort before mutating DOM
             if (taskEpoch !== undefined && taskEpoch !== renderEpoch) return;
 
             img.src = url;
             img.dataset.blobUrl = newBlobUrl;
+            if (isAnimated) {
+                img.dataset.animated = "1";
+                // Trigger a layout flush so `setRImgSize` replaces exact pixels with responsive bounds
+                requestAnimationFrame(() => { disposeImages(); });
+            }
 
             // Clean up the old blob ONLY AFTER the new image is safely rendered on screen
             if (oldBlob && oldBlob !== url) URL.revokeObjectURL(oldBlob);
 
-            if (currentScale > 1 && !disposeAfterLoadScheduled) {
+            if (currentScale > 1 && !disposeAfterLoadScheduled && !isAnimated) {
                 scheduleHiResRender(); // Snap to high-res instantly right after the chunk loads if user is presently zoomed
             }
         } catch (e) {
@@ -507,17 +519,42 @@
     function setRImgSize(rImg, w, h) {
         const wrap = rImg.querySelector(':scope > div');
         if (!wrap) return;
-        wrap.style.width = w + 'px';
-        wrap.style.height = h + 'px';
-        wrap.style.maxWidth = w + 'px';
-        wrap.style.maxHeight = h + 'px';
-        wrap.style.margin = '0';
+
         const img = wrap.querySelector('img');
-        if (img) {
-            img.style.width = w + 'px';
-            img.style.height = h + 'px';
-            img.style.maxWidth = w + 'px';
-            img.style.maxHeight = h + 'px';
+        const isAnimated = img && img.dataset.animated === '1';
+
+        if (isAnimated) {
+            // For animated WebP we set both an explicit pixel size AND maintain max-bounds:
+            // - Explicit `width/height` gives Chrome a concrete rasterization target so animation
+            //   frames are rendered at the actual display size (not at the full container 100% width).
+            // - We still omit `will-change: transform` / `translate3d` on the wrap itself (the CSS
+            //   `:has(img[data-animated="1"])` rule on .r-flex handles this) so the re-raster kick
+            //   can cleanly evict the compositor texture on zoom.
+            wrap.style.width = w + 'px';
+            wrap.style.height = h + 'px';
+            wrap.style.maxWidth = w + 'px';
+            wrap.style.maxHeight = h + 'px';
+            wrap.style.margin = '0 auto';
+            if (img) {
+                img.style.width = '100%';
+                img.style.height = 'auto'; // Maintain AR natively based on width
+                img.style.maxWidth = w + 'px';
+                img.style.maxHeight = h + 'px';
+            }
+        } else {
+            // For massive static manga pages, we rigidly lock the exact pixel bounds so that
+            // preloaded images entering the DOM do not cause catastrophic layout shifs
+            wrap.style.width = w + 'px';
+            wrap.style.height = h + 'px';
+            wrap.style.maxWidth = w + 'px';
+            wrap.style.maxHeight = h + 'px';
+            wrap.style.margin = '0';
+            if (img) {
+                img.style.width = w + 'px';
+                img.style.height = h + 'px';
+                img.style.maxWidth = w + 'px';
+                img.style.maxHeight = h + 'px';
+            }
         }
     }
 
@@ -1054,6 +1091,9 @@
         const newIndex = Math.max(1, Math.min(currentIndex + delta, indexNum));
         if (newIndex === currentIndex) return;
 
+        // Reset zoom if navigating between distinct pages (not needed for continuous scrolling)
+        if (haveZoom && !continuous) resetZoom();
+
         /* Only flush pending render work if we are taking a massive scrubber jump.
            For rapid sequential clicks, we PRESERVE the queue so the background preloader
            isn't brutally aborted right before we land on the image it's preparing! */
@@ -1076,6 +1116,19 @@
         if (continuous || !anim || pageTransitionMs === 0) {
             preloadTimer = setTimeout(preloadImagesAroundCurrent, 200);
         }
+    }
+
+    /** Hard reset of all loaded Native/Sharp image buffers to force re-evaluation of current layout footprint */
+    function purgeRenderCache() {
+        readingTrack.querySelectorAll('.r-img img').forEach(img => {
+            img.src = '';
+            img.removeAttribute('src');
+            if (img.dataset.blobUrl) URL.revokeObjectURL(img.dataset.blobUrl);
+            img.dataset.blobUrl = '';
+            img.dataset.hiRes = '';
+        });
+        renderQueue.clear();
+        renderEpoch++;
     }
 
     // View: pages per view (1/2) + continuous toggle
@@ -1106,6 +1159,12 @@
         else {
             readingTrack.classList.toggle('track-has-gap', scrollGap);
         }
+
+        // Major layout switches dramatically alter the required rendering footprint.
+        // Purge all preloaded images so they request a fresh native re-rasterization 
+        // at the new DOM dimensions via the intersection/preload workers.
+        purgeRenderCache();
+
         disposeImages();
         calculateView(true);
         goToIndex(currentIndex, false);
@@ -1155,6 +1214,10 @@
     // Scroll options
     function applyScrollOptions() {
         resetZoom();
+
+        // Changing the container width strictly changes the expected image targets
+        purgeRenderCache();
+
         readingContainer.classList.remove('width-100', 'width-75', 'width-50');
         if (continuous) readingContainer.classList.add('width-' + scrollWidth);
         if (readingTrack.children.length) {
@@ -1256,21 +1319,46 @@
         if (continuous) {
             const scrollBefore = readingContainer.scrollTop;
 
-            // In continuous mode, Y is handled by the scrollbar.
+            // Y: scrollbar handles vertical focal placement.
             const absY = (scrollBefore + fY) / prevScale;
             const newAbsY = absY * currentScale;
 
-            // In continuous mode, X is handled by transform.
-            const cx = rect.width / 2;
-            const vecX = (fX - cx - zoomTx) / prevScale;
+            // X: transform handles horizontal offset.
+            // Two-path algorithm (adapted from OpenComic):
+            //
+            // ZOOM IN  → focal-point math: shift zoomTx so the pixel under the cursor stays fixed.
+            //   addX = distance from viewport center to focal point (signed, in content-space).
+            //   The new offset accumulates the previous offset (rescaled up) plus the focal contribution.
+            //
+            // ZOOM OUT → proportional scale-down: as scale shrinks toward 1, zoomTx shrinks toward 0.
+            //   Formula: prevTx * (scale - 1) / (prevScale - 1).
+            //   At scale=1 the numerator is 0, so zoomTx converges to 0 with no snap.
+            //
+            // Both paths are then clamped by notCrossZoomLimitsX which returns 0 when the image
+            // fits the viewport (no overflow) and ±maxTx when it overflows — so pan locking and
+            // pan panning are handled by the same clamping step, never by a hard if/else snap.
+
+            const zoomingOut = currentScale < prevScale;
 
             if (prevScale !== currentScale && prevScale > 0) {
-                zoomTx = zoomTx - vecX * (currentScale - prevScale);
+                if (!zoomingOut) {
+                    // Focal-point zoom-in: addX is horizontal distance (in layout-space) from center to cursor
+                    const addX = (rect.width / 2 - fX); // positive = cursor left of center → shift right
+                    zoomTx = (zoomTx / prevScale * currentScale) + (addX / prevScale * (currentScale - prevScale));
+                } else {
+                    // Proportional zoom-out: shrink offset back toward 0 as scale shrinks toward 1
+                    const denom = prevScale - 1;
+                    zoomTx = denom > 0 ? zoomTx * (currentScale - 1) / denom : 0;
+                }
             }
 
-            // Loose limits so the image can be panned fully off edge
-            const looseMaxTx = rect.width * Math.max(1, currentScale);
-            zoomTx = Math.max(-looseMaxTx, Math.min(looseMaxTx, zoomTx));
+            // Content-aware clamp: maxTx = half of the overflow beyond viewport width.
+            // When image fits (scaledW <= viewportW) → maxTx = 0 → zoomTx forced to 0, no snap.
+            // When image overflows → pan is allowed up to the image edge.
+            const scaledW = readingTrack.scrollWidth * currentScale;
+            const rawMaxTx = (scaledW - rect.width) / 2;
+            const maxTx = Math.max(0, rawMaxTx);
+            zoomTx = Math.max(-maxTx, Math.min(maxTx, zoomTx));
 
             if (prevScale !== currentScale && prevScale > 0) {
                 scalePrevData.tranX2 = zoomTx;
@@ -1285,16 +1373,14 @@
             readingBody.style.height = (unscaledTrackHeight * currentScale) + 'px';
 
             readingTrack.style.transition = animation ? 'transform 0.2s cubic-bezier(0.2, 0, 0.2, 1)' : 'none';
-            // Anchor horizontal scaling to center (50%) to match vecX/cx focal math.
-            // Vertical scaling anchors to top (0), scrollbar handles the exact focal placement.
+            // Anchor horizontal scaling to center (50%) to match the addX/center focal math.
+            // Vertical scaling anchors to top (0); scrollbar handles the vertical focal placement.
             readingTrack.style.transformOrigin = '50% 0';
 
-            // Because readingTrack is scaled up by `currentScale`, any translation *after* a scale
-            // visually multiplies the movement. To keep panning 1:1 with mouse movement (dx),
-            // we translate FIRST, then scale.
+            // Translate FIRST so panning is 1:1 with mouse movement regardless of scale factor.
             readingTrack.style.transform = `translate3d(${zoomTx}px, 0, 0) scale(${currentScale})`;
 
-            // Snap the scrollbar down so the focal point stays under the mouse
+            // Snap the scrollbar down so the focal point stays under the cursor
             readingContainer.scrollTop = newAbsY - fY;
         } else {
             // Paged mode scales outwards from the very center of the viewport
@@ -1332,6 +1418,42 @@
             readingBody.style.height = '100%';
         }
 
+        // --- Hardware Rasterization Kick for Animated Images ---
+        // The compositor texture that blurs on zoom is on readingTrack, not on .r-flex.
+        //
+        // In PAGED mode: readingBody gets scale(N) for zoom; readingTrack is a child that has its
+        //   own compositor layer (CSS: will-change: transform on .slide-layout). When readingBody is
+        //   zoomed, Chromium simply magnifies readingTrack's existing frozen texture → blurry.
+        //
+        // In CONTINUOUS mode: the zoom scale is applied directly on readingTrack.style.transform.
+        //   Same problem — readingTrack's own layer is frozen and just scaled up.
+        //
+        // Fix (per Chrome docs): temporarily remove will-change from readingTrack BEFORE the scale
+        //   is committed to the compositor. Without will-change, Chrome re-rasterizes the layer at
+        //   the new effective display resolution instead of stretching the frozen bitmap.
+        //   Re-add will-change in a double-RAF so that subsequent smooth panning still uses the GPU.
+        //
+        // Only run when scale actually changes (not on pan-only calls) and not during a navigation
+        // slide animation (where readingTrack needs its compositor layer for smooth 60fps scrolling).
+        if (prevScale !== currentScale) {
+            const hasAnimated = readingTrack.querySelector('img[data-animated="1"]') !== null;
+            if (hasAnimated && !slideAnimationRaf) {
+                readingTrack.style.willChange = 'auto'; // Override CSS will-change: transform → de-freeze layer
+                readingBody.style.willChange = 'auto';  // Also clear readingBody in case it was promoted too
+                void readingTrack.offsetHeight;         // Synchronous layout flush → forces repaint at new scale
+
+                // Re-promote to compositor in the second frame so panning after zoom stays smooth.
+                // Frame 1: de-promoted repaint is committed to the compositor.
+                // Frame 2: will-change re-instated — subsequent drags benefit from compositor panning.
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        readingTrack.style.willChange = ''; // Remove override → CSS will-change: transform takes back over
+                        readingBody.style.willChange = '';
+                    });
+                });
+            }
+        }
+
         contentEl.classList.toggle('zoomed', haveZoom);
         scheduleHiResRender();
     }
@@ -1351,7 +1473,7 @@
             spread.forEach(p => {
                 const idx = p.index;
                 const img = readingTrack.querySelector(`.r-img-i${idx} img`);
-                if (!img) return;
+                if (!img || img.dataset.animated === '1') return;
                 const d = imagesData[idx];
                 if (!d || !d.width) return;
 
@@ -1363,8 +1485,9 @@
                 const dpr = window.devicePixelRatio || 1;
                 const targetScale = Math.min(currentScale * dpr, d.width / displayW);
                 if (targetScale <= dpr * 1.1) return;
+                const targetPixelWidth = Math.round(displayW * targetScale);
 
-                archiveUtil.renderAtScale(filePath, idx, targetScale).then(async fp => {
+                archiveUtil.renderAtScale(filePath, idx, targetPixelWidth).then(async fp => {
                     if (!fp || currentScale <= 1) return;
 
                     try {
@@ -1376,7 +1499,25 @@
                             if (img.dataset.blobUrl) URL.revokeObjectURL(img.dataset.blobUrl);
                             img.dataset.blobUrl = '';
                             img.dataset.hiRes = '1';
+
+                            // Evict the frozen compositor texture BEFORE setting the high-res src,
+                            // otherwise Chromium paints the crispy image into the 1x GPU texture memory.
+                            readingTrack.style.willChange = 'auto';
+                            readingBody.style.willChange = 'auto';
+                            const rFlex = img.closest('.r-flex');
+                            if (rFlex) rFlex.style.willChange = 'auto';
+
                             img.src = preload.src;
+
+                            void readingTrack.offsetHeight; // Synchronous layout flush forces native repaint
+
+                            requestAnimationFrame(() => {
+                                requestAnimationFrame(() => {
+                                    readingTrack.style.willChange = '';
+                                    readingBody.style.willChange = '';
+                                    if (rFlex) rFlex.style.willChange = '';
+                                });
+                            });
                         }
                     } catch (err) {
                         // Ignore decode errors
@@ -1466,10 +1607,16 @@
         zoomTx = scalePrevData.tranX2 + dx;
         const rect = readingContainer.getBoundingClientRect();
 
-        const looseMaxTx = (rect.width * currentScale);
-        zoomTx = Math.max(-looseMaxTx, Math.min(looseMaxTx, zoomTx));
+        if (continuous) {
+            // Same content-aware clamping as applyScale: lock to center when image fits,
+            // allow panning up to the image edge when it overflows the viewport.
+            const scaledW = readingTrack.scrollWidth * currentScale;
+            const maxTx = Math.max(0, (scaledW - rect.width) / 2);
+            zoomTx = Math.max(-maxTx, Math.min(maxTx, zoomTx));
+        } else {
+            const looseMaxTx = (rect.width * currentScale);
+            zoomTx = Math.max(-looseMaxTx, Math.min(looseMaxTx, zoomTx));
 
-        if (!continuous) {
             zoomTy = scalePrevData.tranY2 + dy;
             const looseMaxTy = (rect.height * currentScale);
             zoomTy = Math.max(-looseMaxTy, Math.min(looseMaxTy, zoomTy));
