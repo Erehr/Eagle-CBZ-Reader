@@ -1938,7 +1938,8 @@
             if (!fp) throw new Error('Image not extracted');
             const item = fileId ? await eagle.item.getById(fileId) : null;
             const basename = (imageNames[idx] || 'image').replace(/^.*[\\/]/, '');
-            const name = pathModule.basename(basename, pathModule.extname(basename));
+            const cbzBasename = pathModule.basename(filePath, pathModule.extname(filePath));
+            const name = `${cbzBasename} - ${pathModule.basename(basename, pathModule.extname(basename))}`;
             const opts = {};
             if (item) {
                 if (item.tags && item.tags.length) opts.tags = item.tags;
@@ -2006,6 +2007,49 @@
         }
     }
 
+    async function saveImage(idx) {
+        try {
+            const fp = await archiveUtil.getImagePath(filePath, idx);
+            if (!fp) throw new Error('Image not extracted');
+
+            const basename = (imageNames[idx] || 'image').replace(/^.*[\\/]/, '');
+            const cbzBasename = pathModule.basename(filePath, pathModule.extname(filePath));
+            const defaultName = `${cbzBasename} - ${basename}`;
+
+            const options = {
+                title: 'Save Image',
+                defaultPath: defaultName
+            };
+
+            const res = await eagle.dialog.showSaveDialog(options);
+            const savePath = typeof res === 'string' ? res : (res && res.filePath);
+            if (savePath) {
+                const fs = require('fs');
+                fs.copyFileSync(fp, savePath);
+                eagle.notification.show({ duration: 3000, title: 'Image Saved', body: getPageLabel(idx) });
+            }
+        } catch (err) {
+            console.error('Save failed:', err);
+            eagle.notification.show({ duration: 3000, title: 'Save Failed', body: err.message });
+        }
+    }
+
+    async function copyImage(idx) {
+        try {
+            const fp = await archiveUtil.getImagePath(filePath, idx);
+            if (!fp) throw new Error('Image not extracted');
+
+            const nativeImage = typeof require !== 'undefined' ? require('electron').nativeImage : window.nativeImage;
+            let img = nativeImage.createFromPath(fp);
+            eagle.clipboard.writeImage(img);
+
+            eagle.notification.show({ duration: 3000, title: 'Image Copied', body: getPageLabel(idx) });
+        } catch (err) {
+            console.error('Copy failed:', err);
+            eagle.notification.show({ duration: 3000, title: 'Copy Failed', body: err.message });
+        }
+    }
+
     function onImageContextMenu(e) {
         // Suppress menu after right-drag zoom gesture
         if (rightDragUsed) {
@@ -2018,6 +2062,8 @@
 
         e.preventDefault();
         const menuItems = [
+            { id: 'save', label: 'Save Image', click: () => saveImage(idx) },
+            { id: 'copy', label: 'Copy Image', click: () => copyImage(idx) },
             { id: 'unpack', label: 'Unpack Image to Eagle', click: () => unpackImage(idx) },
             { id: 'thumbnail', label: 'Set as Thumbnail', click: () => setAsThumbnail(idx) },
         ];
